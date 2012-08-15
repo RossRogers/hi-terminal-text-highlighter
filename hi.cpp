@@ -50,11 +50,24 @@ int main( int argc, char * argv[] ) {
     
     opts_desc.add_options()
         ("help", "show this help message and exit")
+        ("dbg", "enable debug printouts")
+    ;
+    
+    string hex_nums_desc = "Alternate colors on every group of 4 hex numbers like ";
+    set_colors_str(CYAN,NONE,color_str);
+    string cyan = color_str;
+    set_colors_str(NONE,NONE,color_str);
+    string none = color_str;
+    hex_nums_desc += "0x"+cyan+"dead"+none+"beef"+cyan+"aced"+none+"face";
+    opts_desc.add_options()
+        ("hex_nums", hex_nums_desc.c_str())
     ;
     
     opts_desc.add_options()
-        ("dbg", "enable debug printouts")
+        ("ignore-case,i", "Ignore case on all regular expressions.\n")
     ;
+    
+    // [a-fA-F0-9]{4}(?=(?:(?:_?[a-fA-F0-9]{4}){2}){0,18}(?:_?[a-fA-F0-9]{4})($|[^_a-fA-F0-9$]))
     
     po::options_description hidden_desc( "" );
     hidden_desc.add_options()
@@ -92,9 +105,16 @@ int main( int argc, char * argv[] ) {
     }
     
     vector<Filter*> build_filters;
-    
-    if (vm.count("input")) {
-        vector<string> v = vm["input"].as<vector<string> >();
+    if (vm.count("input") || vm.count("hex_nums") ) {
+        vector<string> v;
+        if (vm.count("input") > 0) {
+            v = vm["input"].as<vector<string> >();
+        }
+        if (vm.count("hex_nums")) {
+            v.push_back("[a-fA-F0-9]{4}(?=(?:(?:_?[a-fA-F0-9]{4}){2}){0,18}(?:_?[a-fA-F0-9]{4})($|[^_a-fA-F0-9$]))");
+            v.push_back("CYAN");
+            v.push_back("NONE");
+        }
         Filter *f;
         // add a default benign filter at the beginning
         f = new Filter;
@@ -102,7 +122,7 @@ int main( int argc, char * argv[] ) {
         f->foreground = NONE;
         f->background = NONE;
         build_filters.push_back(f);
-        for(int i = 0; i < v.size(); i++) {
+        for(unsigned int i = 0; i < v.size(); i++) {
             //cout << "processing arg '"<<v[i]<<"'\n";
             switch ( i%3 ) {
               case 0:
@@ -111,7 +131,11 @@ int main( int argc, char * argv[] ) {
                     cout << "hi dbg: Constructing filter with regex string'"
                         <<v[i]<<"'"<<endl;
                 }
-                f->regex = new boost::regex(v[i]);
+                /*boost::regex::flag_type flags = boost::regex_constants::normal;
+                if (vm.count("i")) {
+                    flags |= boost::regex_constants::icase;
+                }*/
+                f->regex = new boost::regex(v[i],(vm.count("ignore-case") >0 ? (boost::regex_constants::normal + boost::regex_constants::icase) : boost::regex_constants::normal));
                 //cout << "creating a regex with string "<<v[i]<<endl;
                 break;
               case 1:
@@ -134,7 +158,7 @@ int main( int argc, char * argv[] ) {
     copy( build_filters.begin(), build_filters.end(), filters);
     
     string input_line;
-    int char_filter_indices_size = 0;
+    unsigned int char_filter_indices_size = 0;
     int *char_filter_indices = NULL;
     while ( cin && !cin.eof()) {
         getline(cin,input_line,'\n');
@@ -146,7 +170,7 @@ int main( int argc, char * argv[] ) {
             if (char_filter_indices != NULL) free(char_filter_indices);
             char_filter_indices = new int[char_filter_indices_size];
         }
-        for ( int c_i = 0; c_i < char_filter_indices_size; c_i++ ) {
+        for ( unsigned int c_i = 0; c_i < char_filter_indices_size; c_i++ ) {
             char_filter_indices[c_i] = 0;
         }
         
