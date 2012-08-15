@@ -3,9 +3,10 @@
 
 
 all:
-	g++ -lboost_regex-mt \
-        -lboost_program_options-mt \
+	g++ \
         -Wall \
         hi.cpp \
+        -lboost_regex \
+        -lboost_program_options \
         -o hi
         
